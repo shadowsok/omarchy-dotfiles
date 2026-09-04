@@ -1,0 +1,107 @@
+#!/bin/bash
+# omarchy-theme-switcher-live
+# Live-preview theme wallpapers on hover in an fzf picker.
+# - Arrow up/down: swap wallpaper to that theme's first background (no color change)
+# - Enter: full `omarchy theme set <name>` (colors, borders, hooks, everything)
+# - Escape / Ctrl-C: restore the wallpaper that was active when the picker opened
+#
+# Wallpaper daemon note:
+#   Omarchy does NOT use swww / hyprpaper / swaybg. It renders the background
+#   through its own Quickshell-based `omarchy-shell`. The current background
+#   is a symlink at ~/.local/state/omarchy/current/background, and the runtime
+#   swap primitive is `omarchy-theme-bg-set <path>` which updates the link and
+#   sends an IPC message to omarchy-shell -- no color / hypr / terminal reload.
+
+set -u
+
+USER_THEMES="$HOME/.config/omarchy/themes"
+STOCK_THEMES="${OMARCHY_PATH:-/usr/share/omarchy}/themes"
+CURRENT_BG_LINK="$HOME/.local/state/omarchy/current/background"
+
+# Save the wallpaper active when we opened, so Escape can restore it.
+CURRENT_BG="$(readlink -f "$CURRENT_BG_LINK" 2>/dev/null || true)"
+
+if ! command -v fzf >/dev/null 2>&1; then
+  echo "fzf is not installed. Install it with: sudo pacman -S --noconfirm fzf" >&2
+  exit 1
+fi
+
+if ! command -v omarchy-theme-bg-set >/dev/null 2>&1; then
+  echo "omarchy-theme-bg-set not found on PATH; is omarchy installed?" >&2
+  exit 1
+fi
+
+# Emit "<theme-name>\t<first-background-path>" lines.
+# User themes take precedence over stock themes of the same name.
+first_background() {
+  local dir="$1"
+  [[ -d $dir/backgrounds ]] || return 1
+  find -L "$dir/backgrounds" -maxdepth 1 -type f \
+    \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+    -o -iname '*.webp' -o -iname '*.gif' -o -iname '*.bmp' \) \
+    -print 2>/dev/null | sort | head -n 1
+}
+
+build_theme_list() {
+  local seen name bg d
+  declare -A seen=()
+
+  if [[ -d $USER_THEMES ]]; then
+    for d in "$USER_THEMES"/*/; do
+      [[ -d $d ]] || continue
+      name=$(basename "$d")
+      [[ -n ${seen[$name]:-} ]] && continue
+      bg=$(first_background "$d")
+      # Fall back to stock backgrounds if user theme has none.
+      [[ -z $bg && -d $STOCK_THEMES/$name ]] && bg=$(first_background "$STOCK_THEMES/$name")
+      [[ -n $bg ]] || continue
+      seen[$name]=1
+      printf '%s\t%s\n' "$name" "$bg"
+    done
+  fi
+
+  if [[ -d $STOCK_THEMES ]]; then
+    for d in "$STOCK_THEMES"/*/; do
+      [[ -d $d ]] || continue
+      name=$(basename "$d")
+      [[ -n ${seen[$name]:-} ]] && continue
+      bg=$(first_background "$d")
+      [[ -n $bg ]] || continue
+      seen[$name]=1
+      printf '%s\t%s\n' "$name" "$bg"
+    done
+  fi
+}
+
+list=$(build_theme_list)
+if [[ -z $list ]]; then
+  echo "No themes with backgrounds were found." >&2
+  exit 1
+fi
+
+# --bind=focus:... fires on every selection change (arrow keys, filter typing).
+# We call the helper as execute-silent so fzf's UI stays put while the
+# wallpaper swap happens in the background.
+selection=$(printf '%s\n' "$list" | fzf \
+  --with-nth=1 \
+  --delimiter=$'\t' \
+  --ansi \
+  --no-multi \
+  --header=$'Enter=apply full theme   Esc=restore original wallpaper   \u2191\u2193=live preview' \
+  --prompt='theme > ' \
+  --preview='printf "Live preview: %s\n\nBackground:\n  %s\n" {1} {2}' \
+  --preview-window=up:4:wrap \
+  --bind='focus:execute-silent(omarchy-theme-switcher-live-preview {2})' \
+  --bind='esc:abort' \
+) || selection=""
+
+if [[ -n $selection ]]; then
+  name=$(printf '%s' "$selection" | cut -f1)
+  # Full apply -- colors, borders, hooks, terminals, everything.
+  exec omarchy theme set "$name"
+fi
+
+# Aborted (Esc / Ctrl-C): restore whatever wallpaper we had when we opened.
+if [[ -n $CURRENT_BG && -f $CURRENT_BG ]]; then
+  omarchy-theme-bg-set "$CURRENT_BG" >/dev/null 2>&1 || true
+fi

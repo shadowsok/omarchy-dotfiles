@@ -50,3 +50,8 @@ o.bind("SUPER + BRACKETRIGHT", "KOTH: focus next side window",
 -- Add a new side window (spawn a terminal into the stack).
 -- Uncomment if you want a dedicated "spawn to side" shortcut:
 -- o.bind("SUPER + SHIFT + RETURN", "KOTH: new side terminal", "alacritty")
+
+-- Live-preview theme switcher: wallpapers swap as you arrow through the list,
+-- full theme applies only on Enter, Esc restores the original wallpaper.
+o.bind("SUPER + SHIFT + T", "Theme switcher (live preview)",
+  "alacritty --class Omarchy-ThemeSwitcher -e omarchy-theme-switcher-live")

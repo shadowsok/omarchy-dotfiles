@@ -1,0 +1,15 @@
+#!/bin/bash
+# omarchy-theme-switcher-live-preview
+# Swap the live wallpaper to the given image, without touching theme colors.
+# Called by fzf's focus:execute-silent as the user arrows through the list.
+
+set -u
+
+bg="${1:-}"
+[[ -n $bg && -f $bg ]] || exit 0
+
+# omarchy-theme-bg-set updates ~/.local/state/omarchy/current/background
+# and pushes the change to the running omarchy-shell over IPC. It does NOT
+# re-apply theme colors, restart hyprland, or run any theme-set hooks --
+# exactly the primitive we want for live preview.
+exec omarchy-theme-bg-set "$bg" >/dev/null 2>&1

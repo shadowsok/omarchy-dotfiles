@@ -34,3 +34,24 @@ Center = 2560×1440 (exact 16:9). Two 1280×1440 side columns fill the rest of t
 
 - Obsidian vault: `shadowsok/obsidian-vault` (private)
 - Companion doc: `_AI_Context/Omarchy_Explore_Guide.md` in the vault
+
+## Live-Preview Theme Switcher
+
+`SUPER + SHIFT + T` opens `omarchy-theme-switcher-live` — an fzf-based picker that
+swaps the wallpaper live as you arrow through themes. Enter applies the full
+theme; Escape restores the original wallpaper.
+
+Requires: `fzf`, Omarchy's built-in shell wallpaper daemon.
+
+## Theme Catalog on Target Machine
+
+86 themes total when this repo is applied:
+- 8 Bootswatch dark themes (bs-*)
+- 42 franchise sub-variants (cp-*, mtg-*, me-*, bg3-*, w3-*, de-*, br-*, pm-*, hr-*, fnv-*, cosmic-*, eldritch-*)
+- 12 curated popular community themes (catppuccin-dark, dracula, tokyo-night, etc.)
+- 24 additional community themes from omarchy.org
+
+Themes themselves live in `~/.config/omarchy/themes/` and are NOT synced via this
+repo (they're 3+ GB of images). To rebuild the theme catalog on a fresh machine,
+run the theme install commands documented in the vault at
+`_AI_Context/Omarchy_Explore_Guide.md`.
